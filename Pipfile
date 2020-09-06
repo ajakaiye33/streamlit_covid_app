@@ -1,0 +1,22 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+pandas = "*"
+pystan = "*"
+fbprophet = "*"
+plotly = "*"
+streamlit = "*"
+numpy = "*"
+scipy = "*"
+ipykernel = "*"
+seaborn = "*"
+scikit-learn = "*"
+bar-chart-race = "*"
+
+[requires]
+python_version = "3.7"
