@@ -197,7 +197,7 @@ def zones(df):
 
 
 geopolitical_zone = zones(clean_covid_ng)
-if st.checkbox('Show Geopolitical Data'):
+if st.checkbox('Show Geopolitical Zones Data'):
     '', geopolitical_zone
 
 
@@ -232,16 +232,16 @@ st.markdown(f'### The Case Fatality rate In Nigeria is: {round(cfr,2)}%')
 
 
 # Calculate Mortality Rate/Deaths Per One Million
-def mortality_rate(df):
-    estimated_population = 200000000
-    covid_deaths = df['deaths'].sum()
-    mr = covid_deaths/estimated_population
-    return mr
-
-
-mr = mortality_rate(model_data)
-death_per1million = model_data['deaths'].sum()/1000000
-print(f'The Mortality Rate of Covid19: {mr}, whereas deaths per one million is:{death_per1million}')
+# def mortality_rate(df):
+#     estimated_population = 200000000
+#     covid_deaths = df['deaths'].sum()
+#     mr = covid_deaths/estimated_population
+#     return mr
+#
+#
+# mr = mortality_rate(model_data)
+# death_per1million = model_data['deaths'].sum()/1000000
+# print(f'The Mortality Rate of Covid19: {mr}, whereas deaths per one million is:{death_per1million}')
 
 
 # wrangle Data
@@ -294,78 +294,68 @@ log_model_data = clean_model_data(model_data)
 
 
 # Line graph of confirm cases over time
-ax = px.line(log_model_data,
-             x='Dates',
-             y='total_daily_cases',
-             title='Line graph of Confirmed Cases Over Time')
-st.plotly_chart(ax)
+def line_graph():
+    ax = px.line(log_model_data,
+                 x='Dates',
+                 y='total_daily_cases',
+                 title='Line graph of Confirmed Cases Over Time')
+    st.plotly_chart(ax)
 
 
-# ## Logistic Model
-# The logistic model can be simply rendered as $$\huge f(x;a,b,c) = \frac{c}{1 + e^-(x-b)/a}$$
-
-# where :
-# - a = **Infection speed**
-# - b = **Day with maximum Infections Occured**
-# - c = **Total Number of people that would be infected at the end of the pandemic**
-
+if st.checkbox('See Forcast of Confirmed Cases, 30 days from today(For accurate result, check all preceeding check boxes above)'):
+    line_graph()
 
 # Build Logistic Model
+    def logistic_model(x, a, b, c, d):
+        return a / (1 + np.exp(-c * (x - d))) + b
 
-def logistic_model(x, a, b, c, d):
-    return a / (1 + np.exp(-c * (x - d))) + b
+    def build_data(df):
+        df['time_stamp'] = df.index
+        return df
 
-
-def build_data(df):
-    df['time_stamp'] = df.index
-    return df
-
-
-build_model = build_data(log_model_data)
-
+    build_model = build_data(log_model_data)
 
 # extract x(days) & y(cases) from dataframe
-x = list(build_model.iloc[:, 4])
-y = list(build_model.iloc[:, 1])
 
-
+    x = list(build_model.iloc[:, 4])
+    y = list(build_model.iloc[:, 1])
 # randomly initialize a,b,c,d
-p0 = np.random.exponential(size=4)
+    p0 = np.random.exponential(size=4)
 
-# set upper and lower bounds a,b,c
-bounds = (0, [10000000., 2., 100000000., 100000000.])
-(a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
-
-conex = np.array(y)
+# set upper and lower bounds a,b,class
+    bounds = (0, [10000000., 2., 100000000., 100000000.])
+    (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
 
 
-# Calculate Time of Plateau
-def plateau(confirmed, logistic_params, diff=200):
-    a_, b_, c_, d_ = logistic_params
-    confirm_now = confirmed[-1]
-    confirmed_then = confirmed[-2]
-    days = 0
-    now = x[-1]
-    while confirm_now - confirmed_then > diff:
-        days += 1
-        confirmed_then = confirm_now
-        confirm_now = logistic_model(now + days, a_, b_, c_, d_)
-    return days, confirm_now
+#conex = np.array(y)
 
+#
+# # Calculate Time of Plateau
+# def plateau(confirmed, logistic_params, diff=200):
+#     a_, b_, c_, d_ = logistic_params
+#     confirm_now = confirmed[-1]
+#     confirmed_then = confirmed[-2]
+#     days = 0
+#     now = x[-1]
+#     while confirm_now - confirmed_then > diff:
+#         days += 1
+#         confirmed_then = confirm_now
+#         confirm_now = logistic_model(now + days, a_, b_, c_, d_)
+#     return days, confirm_now
 
-days, confirmy = plateau(y, (a_, b_, c_, d_))
-
-print(f"last day's case:{conex[-1] - conex[-2]}")
+#
+# days, confirmy = plateau(y, (a_, b_, c_, d_))
+#
+# print(f"last day's case:{conex[-1] - conex[-2]}")
 
 
 # carrying cappacity from above logistic growth model
-if st.checkbox('See Forcast of Confirmed Cases, 30 days from today'):
+
     t_fastest = np.log(a_)/b_
 
     check_fastest = logistic_model(t_fastest, a_, b_, c_, d_)
 
-
-# wrangle dataframe to fit prophet requirement
+    # wrangle dataframe to fit prophet requirement
     def forecast_data(df):
         df['ds'] = df['Dates']
         df['y'] = df['total_daily_cases']
@@ -374,9 +364,10 @@ if st.checkbox('See Forcast of Confirmed Cases, 30 days from today'):
         return prof_df
 
     prophet_data = forecast_data(build_model)
-    prophet_data.head()
+# prophet_data.head()
 
-    # Build Prophet Model
+# Build Prophet Model
+
     m = Prophet(growth='logistic')
     m.fit(prophet_data)
     future = m.make_future_dataframe(periods=30)
