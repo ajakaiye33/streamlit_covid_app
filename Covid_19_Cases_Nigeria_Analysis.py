@@ -311,74 +311,66 @@ st.plotly_chart(ax)
 
 
 # Build Logistic Model
-def logistic_model(x, a, b, c, d):
-    return a / (1 + np.exp(-c * (x - d))) + b
+if st.checkbox('See Forcast of Confirmed Cases, 30 days from today'):
+    def logistic_model(x, a, b, c, d):
+        return a / (1 + np.exp(-c * (x - d))) + b
 
+    def build_data(df):
+        df['time_stamp'] = df.index
+        return df
 
-def build_data(df):
-    df['time_stamp'] = df.index
-    return df
-
-
-build_model = build_data(log_model_data)
+    build_model = build_data(log_model_data)
 
 
 # extract x(days) & y(cases) from dataframe
-x = list(build_model.iloc[:, 4])
-y = list(build_model.iloc[:, 1])
+    x = list(build_model.iloc[:, 4])
+    y = list(build_model.iloc[:, 1])
 
 
 # randomly initialize a,b,c,d
-p0 = np.random.exponential(size=4)
+    p0 = np.random.exponential(size=4)
 
 
 # set upper and lower bounds a,b,c
-bounds = (0, [10000000., 2., 100000000., 100000000.])
+    bounds = (0, [10000000., 2., 100000000., 100000000.])
 
+    (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
 
-(a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
-
-
-conex = np.array(y)
+    conex = np.array(y)
 
 
 # Calculate Time of Plateau
-def plateau(confirmed, logistic_params, diff=200):
-    a_, b_, c_, d_ = logistic_params
-    confirm_now = confirmed[-1]
-    confirmed_then = confirmed[-2]
-    days = 0
-    now = x[-1]
-    while confirm_now - confirmed_then > diff:
-        days += 1
-        confirmed_then = confirm_now
-        confirm_now = logistic_model(now + days, a_, b_, c_, d_)
-    return days, confirm_now
+    def plateau(confirmed, logistic_params, diff=200):
+        a_, b_, c_, d_ = logistic_params
+        confirm_now = confirmed[-1]
+        confirmed_then = confirmed[-2]
+        days = 0
+        now = x[-1]
+        while confirm_now - confirmed_then > diff:
+            days += 1
+            confirmed_then = confirm_now
+            confirm_now = logistic_model(now + days, a_, b_, c_, d_)
+        return days, confirm_now
 
+    days, confirmy = plateau(y, (a_, b_, c_, d_))
 
-days, confirmy = plateau(y, (a_, b_, c_, d_))
-
-
-print(f"last day's case:{conex[-1] - conex[-2]}")
+    print(f"last day's case:{conex[-1] - conex[-2]}")
 
 
 # carrying cappacity from above logistic growth model
-t_fastest = np.log(a_)/b_
+    t_fastest = np.log(a_)/b_
 
-
-check_fastest = logistic_model(t_fastest, a_, b_, c_, d_)
+    check_fastest = logistic_model(t_fastest, a_, b_, c_, d_)
 
 
 # wrangle dataframe to fit prophet requirement
-def forecast_data(df):
-    df['ds'] = df['Dates']
-    df['y'] = df['total_daily_cases']
-    df['cap'] = check_fastest
-    prof_df = df[['ds', 'y', 'cap']]
-    return prof_df
+    def forecast_data(df):
+        df['ds'] = df['Dates']
+        df['y'] = df['total_daily_cases']
+        df['cap'] = check_fastest
+        prof_df = df[['ds', 'y', 'cap']]
+        return prof_df
 
-
-if st.checkbox('See Forcast of Confirmed Cases, 30 days from today'):
     prophet_data = forecast_data(build_model)
     prophet_data.head()
 
@@ -390,8 +382,7 @@ if st.checkbox('See Forcast of Confirmed Cases, 30 days from today'):
     future['cap'] = prophet_data['cap'].iloc[0]
     forecast = m.predict(future)
 
-
-# Visualize Prophet Model
+    # Visualize Prophet Model
     forecast.tail()
 
     lowyhat = forecast.iloc[-1, 3]
