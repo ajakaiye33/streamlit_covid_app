@@ -23,7 +23,7 @@ st.title('Predicting Confirmed Cases of Covid19')
 
 
 time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/Records_covid19.csv'
-non_time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/cases29082020.csv'
+non_time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/cases07092020.csv'
 
 
 # Loading Data
@@ -378,30 +378,29 @@ def forecast_data(df):
     return prof_df
 
 
-prophet_data = forecast_data(build_model)
-prophet_data.head()
+if st.checkbox('See Forcast of Confirmed Cases, 30 days from today'):
+    prophet_data = forecast_data(build_model)
+    prophet_data.head()
 
-# Build Prophet Model
-m = Prophet(growth='logistic')
-m.fit(prophet_data)
-future = m.make_future_dataframe(periods=30)
+    # Build Prophet Model
+    m = Prophet(growth='logistic')
+    m.fit(prophet_data)
+    future = m.make_future_dataframe(periods=30)
 
-
-future['cap'] = prophet_data['cap'].iloc[0]
-forecast = m.predict(future)
+    future['cap'] = prophet_data['cap'].iloc[0]
+    forecast = m.predict(future)
 
 
 # Visualize Prophet Model
-forecast.tail()
+    forecast.tail()
 
+    lowyhat = forecast.iloc[-1, 3]
+    upperyhat = forecast.iloc[-1, 4]
+    st.markdown(
+        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} thirty days from today ')
 
-lowyhat = forecast.iloc[-1, 3]
-upperyhat = forecast.iloc[-1, 4]
-st.markdown(
-    f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} thirty days from today ')
+    fig = m.plot(forecast)
+    st.write(fig)
 
-fig = m.plot(forecast)
-st.write(fig)
-
-fig2 = m.plot_components(forecast)
-st.write(fig2)
+    fig2 = m.plot_components(forecast)
+    st.write(fig2)
