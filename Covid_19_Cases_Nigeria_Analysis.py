@@ -302,7 +302,7 @@ def line_graph():
     st.plotly_chart(ax)
 
 
-if st.checkbox('See Forcast of Confirmed Cases, 30 days from today(For accurate result, check all preceeding check boxes above)'):
+if st.checkbox('See Forcast of Confirmed Cases, 15 days from today(For accurate result, check all preceeding check boxes above)'):
     line_graph()
 
 # Build Logistic Model
@@ -370,7 +370,7 @@ if st.checkbox('See Forcast of Confirmed Cases, 30 days from today(For accurate 
 
     m = Prophet(growth='logistic')
     m.fit(prophet_data)
-    future = m.make_future_dataframe(periods=30)
+    future = m.make_future_dataframe(periods=15)
 
     future['cap'] = prophet_data['cap'].iloc[0]
     forecast = m.predict(future)
