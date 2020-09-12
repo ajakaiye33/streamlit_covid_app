@@ -302,7 +302,7 @@ def line_graph():
     st.plotly_chart(ax)
 
 
-if st.checkbox('See Forcast of Confirmed Cases, 15 days from today(For accurate result, check all preceeding check boxes above)'):
+if st.checkbox('See Forecast of Confirmed Cases, 15 days from today(For accurate result, check all preceeding check boxes above)'):
     line_graph()
 
 # Build Logistic Model
@@ -381,7 +381,7 @@ if st.checkbox('See Forcast of Confirmed Cases, 15 days from today(For accurate 
     lowyhat = forecast.iloc[-1, 3]
     upperyhat = forecast.iloc[-1, 4]
     st.markdown(
-        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} thirty days from today ')
+        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} 15 days from today ')
 
     fig = m.plot(forecast)
     st.write(fig)
