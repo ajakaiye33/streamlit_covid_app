@@ -23,7 +23,7 @@ st.title('Predicting Confirmed Cases of Covid19')
 
 
 time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/Records_covid19.csv'
-non_time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/cases07092020.csv'
+non_time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/cases19092020.csv'
 
 
 # Loading Data
@@ -302,7 +302,7 @@ def line_graph():
     st.plotly_chart(ax)
 
 
-if st.checkbox('See Forecast of Confirmed Cases, 15 days from today(For accurate result, check all preceeding check boxes above)'):
+if st.checkbox('See Forecast of Confirmed Cases, 7 days from today(For better result, check all preceeding check boxes above)'):
     line_graph()
 
 # Build Logistic Model
@@ -370,7 +370,7 @@ if st.checkbox('See Forecast of Confirmed Cases, 15 days from today(For accurate
 
     m = Prophet(growth='logistic')
     m.fit(prophet_data)
-    future = m.make_future_dataframe(periods=15)
+    future = m.make_future_dataframe(periods=7)
 
     future['cap'] = prophet_data['cap'].iloc[0]
     forecast = m.predict(future)
@@ -381,7 +381,7 @@ if st.checkbox('See Forecast of Confirmed Cases, 15 days from today(For accurate
     lowyhat = forecast.iloc[-1, 3]
     upperyhat = forecast.iloc[-1, 4]
     st.markdown(
-        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} 15 days from today ')
+        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} 7 days from today ')
 
     fig = m.plot(forecast)
     st.write(fig)
