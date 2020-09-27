@@ -91,7 +91,7 @@ second_data = cleany
 
 
 def states_stat(df, st_col, st_death):
-    death_by_state = df[[st_col, st_death]].sort_values(st_death, ascending=False)
+    death_by_state = df[[st_col, st_death]].sort_values(st_death, axis=0, ascending=False)
     return death_by_state
 
 
