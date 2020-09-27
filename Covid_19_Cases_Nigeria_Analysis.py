@@ -11,19 +11,42 @@ import numpy as np
 import streamlit as st
 from sklearn.metrics import mean_squared_error
 from scipy.optimize import curve_fit
+
 from scipy.optimize import fsolve
 from fbprophet import Prophet
 import matplotlib.pyplot as plt
 import seaborn as sns
-#import bar_chart_race as bcr
-# import warnings
-# warnings.filterwarnings('ignore')
+import requests
+import sys
+from bs4 import BeautifulSoup
+from scrape_html_table import get_data
 
 st.title('Predicting Confirmed Cases of Covid19')
 
+df = get_data()
 
 time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/Records_covid19.csv'
-non_time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/cases19092020.csv'
+non_time_series_data = df
+
+
+def clean_col(name):
+    # print('pretifying the column names')
+    pretify_name = name.strip().lower().replace(" ", "_").replace('/', '_')
+    return pretify_name
+
+
+affected_column = ['no._of_cases_(lab_confirmed)', 'no._of_cases_(on_admission)', 'no._discharged']
+
+
+def polish_data(df):
+    clean_columns = df.rename(columns=clean_col)
+    for i in clean_columns.columns:
+        if i in affected_column:
+            clean_columns[i] = clean_columns[i].str.replace(',', '').astype('int64')
+    return clean_columns
+
+
+cleany = polish_data(non_time_series_data)
 
 
 # Loading Data
@@ -37,34 +60,34 @@ def load_tm_data():
 # load data
 @st.cache()
 def non_tm_data():
-    df = pd.read_csv(non_time_series_data)
+    df = get_data()
     return df
 
 
 if st.checkbox('Display States Data'):
-    '', non_tm_data().head()
+    '', cleany.head()
 
 
-def clean_col(name):
-    # print('pretifying the column names')
-    pretify_name = name.strip().lower().replace(" ", "_").replace('/', '_')
-    return pretify_name
+# def clean_col(name):
+#     # print('pretifying the column names')
+#     pretify_name = name.strip().lower().replace(" ", "_").replace('/', '_')
+#     return pretify_name
 
 
 # clean_data
-second_data = non_tm_data()
-affected_column = ['no._of_cases_(lab_confirmed)', 'no._of_cases_(on_admission)', 'no._discharged']
+second_data = cleany
+#affected_column = ['no._of_cases_(lab_confirmed)', 'no._of_cases_(on_admission)', 'no._discharged']
 
 
-def polish_data(df):
-    clean_columns = df.rename(columns=clean_col)
-    for i in clean_columns.columns:
-        if i in affected_column:
-            clean_columns[i] = clean_columns[i].str.replace(',', '').astype('int64')
-    return clean_columns
-
-
-cleany = polish_data(second_data)
+# def polish_data(df):
+#     clean_columns = df.rename(columns=clean_col)
+#     # for i in clean_columns.columns:
+#     #     if i in affected_column:
+#     #         clean_columns[i] = clean_columns[i].str.replace(',', '').astype('int64')
+#     return clean_columns
+#
+#
+# cleany = polish_data(second_data)
 
 
 def states_stat(df, st_col, st_death):
@@ -72,12 +95,12 @@ def states_stat(df, st_col, st_death):
     return death_by_state
 
 
-death_by_states = states_stat(cleany, 'states_affected', 'no._of_deaths')
+death_by_states = states_stat(second_data, 'states_affected', 'no._of_deaths')
 
 # Visualize Deaths By States
 ax = px.bar(death_by_states,
-            y='no._of_deaths',
             x='states_affected',
+            y='no._of_deaths',
             hover_name='states_affected',
             title='Deaths By States')
 #
@@ -89,11 +112,11 @@ if st.checkbox('Show Deaths By States'):
 # wrangle Data
 def recov_ratio(df, st_col, recov_col, conf_cases, new_col):
     df[new_col] = df[recov_col] / df[conf_cases]
-    recovey_ratio = df[[st_col, new_col]].sort_values(new_col, ascending=False)
+    recovey_ratio = df[[st_col, new_col]].sort_values(by=new_col, ascending=False)
     return recovey_ratio
 
 
-state_recov_ratio = recov_ratio(cleany, 'states_affected', 'no._discharged',
+state_recov_ratio = recov_ratio(second_data, 'states_affected', 'no._discharged',
                                 'no._of_cases_(lab_confirmed)', 'recov_ratio')
 
 
@@ -111,7 +134,7 @@ if st.checkbox('See Recoveries/Discharged Rates By States'):
 
 
 # Wrangle Data
-discharged_by_states = states_stat(cleany, 'states_affected', 'no._discharged')
+discharged_by_states = states_stat(second_data, 'states_affected', 'no._discharged')
 
 
 # Visualize Discharge By States
@@ -125,7 +148,7 @@ if st.checkbox(' Show Patients Dischage By States'):
     st.plotly_chart(discharge)
 
 # Wrangle Data
-confirmed_cases_states = states_stat(cleany, 'states_affected', 'no._of_cases_(lab_confirmed)')
+confirmed_cases_states = states_stat(second_data, 'states_affected', 'no._of_cases_(lab_confirmed)')
 
 
 # Visualize Confirmed Cases By States
@@ -302,10 +325,10 @@ def line_graph():
     st.plotly_chart(ax)
 
 
-if st.checkbox('See Forecast of Confirmed Cases, 7 days from today(For better result, check all preceeding check boxes above)'):
+if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better result, check all preceeding check boxes above)'):
     line_graph()
 
-# Build Logistic Model
+    # Build Logistic Model
     def logistic_model(x, a, b, c, d):
         return a / (1 + np.exp(-c * (x - d))) + b
 
@@ -315,14 +338,14 @@ if st.checkbox('See Forecast of Confirmed Cases, 7 days from today(For better re
 
     build_model = build_data(log_model_data)
 
-# extract x(days) & y(cases) from dataframe
+    # extract x(days) & y(cases) from dataframe
 
     x = list(build_model.iloc[:, 4])
     y = list(build_model.iloc[:, 1])
-# randomly initialize a,b,c,d
+    # randomly initialize a,b,c,d
     p0 = np.random.exponential(size=4)
 
-# set upper and lower bounds a,b,class
+    # set upper and lower bounds a,b,class
     bounds = (0, [10000000., 2., 100000000., 100000000.])
     (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
 
@@ -370,7 +393,7 @@ if st.checkbox('See Forecast of Confirmed Cases, 7 days from today(For better re
 
     m = Prophet(growth='logistic')
     m.fit(prophet_data)
-    future = m.make_future_dataframe(periods=7)
+    future = m.make_future_dataframe(periods=30)
 
     future['cap'] = prophet_data['cap'].iloc[0]
     forecast = m.predict(future)
@@ -381,7 +404,7 @@ if st.checkbox('See Forecast of Confirmed Cases, 7 days from today(For better re
     lowyhat = forecast.iloc[-1, 3]
     upperyhat = forecast.iloc[-1, 4]
     st.markdown(
-        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} 7 days from today ')
+        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} 30 days from today ')
 
     fig = m.plot(forecast)
     st.write(fig)
