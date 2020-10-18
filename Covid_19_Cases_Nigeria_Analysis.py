@@ -373,8 +373,8 @@ if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better r
     p0 = np.random.exponential(size=4)
 
     # set upper and lower bounds a,b,class
-    bounds = (0, [10000000., 2., 100000000., 100000000.])
-    (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
+    bounds = (0, [10000000., 1., 100000000., 100000000.])
+    (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0, method='trf')
 
 
 #conex = np.array(y)
