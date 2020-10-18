@@ -4,6 +4,7 @@ from urllib.error import URLError
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
+from sys import getsizeof
 
 
 def get_site_html(url):
@@ -23,8 +24,6 @@ def get_data():
     site_html = get_site_html('https://covid19.ncdc.gov.ng/')
 
     the_table = site_html.find('table', {'id': 'custom1'})
-    head_table = the_table.thead.get_text().split('\n')[2:6]
-    # print(the_table)
     body_table = the_table.find_all('tr')
     table_head = body_table[0]
     # print(table_head)

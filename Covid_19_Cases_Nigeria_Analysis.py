@@ -313,15 +313,41 @@ def clean_model_data(df):
     return clean_index
 
 
+def smooth(df, window=5, repeat=10):
+    """
+    Smooth data using repeated moving average
+
+    Parameters
+    ----------
+    df : DataFrame
+
+    window : integer window size
+
+    repeat : integer number of repeats
+
+    Returns
+    -------
+    DataFrame
+    """
+    df = df.diff()
+    for _ in range(repeat):
+        df = df.rolling(window, min_periods=1, center=True).mean()
+    return df.cumsum().reset_index()
+
+
+smooth_data = smooth(model_data)
+# st.write(smooth_data)
+
+
 log_model_data = clean_model_data(model_data)
 
 
 # Line graph of confirm cases over time
 def line_graph():
-    ax = px.line(log_model_data,
+    ax = px.line(smooth_data,
                  x='Dates',
                  y='total_daily_cases',
-                 title='Line graph of Confirmed Cases Over Time')
+                 title='Line graph of Confirmed Daily Cases Over Time')
     st.plotly_chart(ax)
 
 
@@ -337,6 +363,7 @@ if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better r
         return df
 
     build_model = build_data(log_model_data)
+    # st.write(build_model.head())
 
     # extract x(days) & y(cases) from dataframe
 
@@ -387,7 +414,7 @@ if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better r
         return prof_df
 
     prophet_data = forecast_data(build_model)
-# prophet_data.head()
+    # st.write(prophet_data.tail())
 
 # Build Prophet Model
 
@@ -399,7 +426,7 @@ if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better r
     forecast = m.predict(future)
 
     # Visualize Prophet Model
-    forecast.tail()
+    # st.write(forecast.tail())
 
     lowyhat = forecast.iloc[-1, 3]
     upperyhat = forecast.iloc[-1, 4]
