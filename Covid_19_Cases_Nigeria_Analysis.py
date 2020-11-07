@@ -3,27 +3,26 @@
 
 
 # import modules and packages
-
-
 import pandas as pd
 import plotly.express as px
 import numpy as np
 import streamlit as st
 from sklearn.metrics import mean_squared_error
 from scipy.optimize import curve_fit
-
 from scipy.optimize import fsolve
 from fbprophet import Prophet
 import matplotlib.pyplot as plt
 import seaborn as sns
 import requests
 import sys
+import json
 from bs4 import BeautifulSoup
 from scrape_html_table import get_data
 
 st.title('Predicting Confirmed Cases of Covid19')
 
 df = get_data()
+global_data = 'https://pomber.github.io/covid19/timeseries.json'
 
 time_series_data = 'https://raw.githubusercontent.com/ajakaiye33/covid19Naija/master/covid19Naija/data/Records_covid19.csv'
 non_time_series_data = df
@@ -44,6 +43,40 @@ def polish_data(df):
         if i in affected_column:
             clean_columns[i] = clean_columns[i].str.replace(',', '').astype('int64')
     return clean_columns
+# data from json
+
+
+def naija_cases(url=global_data):
+    time_series = str(url)
+    response = requests.get(time_series)
+
+    # function to check status of webpage
+    def status_check(r):
+        if r.status_code == 200:
+            return 1
+        else:
+            return -1
+
+    def encoding_check(r):
+        return (r.encoding)
+
+    def decode_content(r, encoding):
+        return (r.content.decode(encoding))
+    status = status_check(response)
+    if status == 1:
+        contents = decode_content(response, encoding_check(response))
+    else:
+        print('Sorry could not reach the web page!')
+        return -1
+    # load into pandas
+    str_data = json.loads(contents)
+    isolate_nig = str_data['Nigeria']
+    pand_data = pd.DataFrame(isolate_nig)
+    return pand_data
+
+
+naija_data = naija_cases()
+naija_data['date'] = pd.to_datetime(naija_data['date'])
 
 
 cleany = polish_data(non_time_series_data)
@@ -52,7 +85,7 @@ cleany = polish_data(non_time_series_data)
 # Loading Data
 @st.cache()
 def load_tm_data():
-    # print('f Loading data from {filename} ...')
+        # print('f Loading data from {filename} ...')
     df = pd.read_csv(time_series_data, parse_dates=['Dates'], index_col='Dates')
     return df
 
@@ -63,9 +96,20 @@ def non_tm_data():
     df = get_data()
     return df
 
+# cached data
+
+
+@st.cache()
+def naija_json():
+    df = naija_cases()
+    return df
+
 
 if st.checkbox('Display States Data'):
     '', cleany.head()
+
+if st.checkbox('Display Timeseries Data'):
+    '', naija_data.tail()
 
 
 # def clean_col(name):
@@ -243,13 +287,15 @@ if st.checkbox('Show Confirmed Cases By Geopolitical Zones'):
 
 
 def case_fatality(df):
+    df = df.set_index('date')
+    df = df.diff()
     total_death = df['deaths'].sum()
-    total_confirm_cases = df['total_daily_cases'].sum()
+    total_confirm_cases = df['confirmed'].sum()
     cfr = total_death/total_confirm_cases * 100
     return cfr
 
 
-cfr = case_fatality(model_data)
+cfr = case_fatality(naija_data)
 
 st.markdown(f'### The Case Fatality rate In Nigeria is: {round(cfr,2)}%')
 
@@ -269,21 +315,23 @@ st.markdown(f'### The Case Fatality rate In Nigeria is: {round(cfr,2)}%')
 
 # wrangle Data
 def monthly_stats(df):
+    df = df.set_index('date')
+    df = df.diff()
     #make_date_index = df.set_index(data_column)
     monthly_data = df.resample('M').agg(
-        {'deaths': 'sum', 'total_daily_cases': 'sum', 'discharged_recovered': 'sum'})
-    monthly_data['dates'] = monthly_data.index
-    monthly_data['month'] = monthly_data['dates'].dt.month
-    return monthly_data.drop('dates', axis=1)
+        {'deaths': 'sum', 'confirmed': 'sum', 'recovered': 'sum'})
+    monthly_data['date'] = monthly_data.index
+    monthly_data['month'] = monthly_data['date'].dt.month
+    return monthly_data.drop('date', axis=1)
 
 
-df_month = monthly_stats(model_data)
+df_month = monthly_stats(naija_data)
 
 
 # Visualize Confirmed Cases By Month
 month = px.bar(df_month,
                x='month',
-               y='total_daily_cases',
+               y='confirmed',
                hover_name='month',
                title='Monthly Confirm Cases')
 
@@ -308,9 +356,9 @@ clean_rb = tidyrc_data(clean_covid_ng)
 
 # Preapre data
 def clean_model_data(df):
-    cumulate_data = df.cumsum(axis=0)
-    clean_index = cumulate_data.reset_index()
-    return clean_index
+    # cumulate_data = df
+    # clean_index = cumulate_data.reset_index()
+    return df
 
 
 def smooth(df, window=5, repeat=10):
@@ -329,24 +377,25 @@ def smooth(df, window=5, repeat=10):
     -------
     DataFrame
     """
+    df = df.set_index('date')
     df = df.diff()
     for _ in range(repeat):
         df = df.rolling(window, min_periods=1, center=True).mean()
     return df.cumsum().reset_index()
 
 
-smooth_data = smooth(model_data)
+smooth_data = smooth(naija_data)
 # st.write(smooth_data)
 
 
-log_model_data = clean_model_data(model_data)
+log_model_data = clean_model_data(naija_data)
 
 
 # Line graph of confirm cases over time
 def line_graph():
     ax = px.line(smooth_data,
-                 x='Dates',
-                 y='total_daily_cases',
+                 x='date',
+                 y='confirmed',
                  title='Line graph of Confirmed Daily Cases Over Time')
     st.plotly_chart(ax)
 
@@ -373,8 +422,8 @@ if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better r
     p0 = np.random.exponential(size=4)
 
     # set upper and lower bounds a,b,class
-    bounds = (0, [10000000., 1., 100000000., 100000000.])
-    (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0, method='trf')
+    bounds = (0, [10000000., 2., 100000000., 100000000.])
+    (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
 
 
 #conex = np.array(y)
@@ -407,8 +456,8 @@ if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better r
 
     # wrangle dataframe to fit prophet requirement
     def forecast_data(df):
-        df['ds'] = df['Dates']
-        df['y'] = df['total_daily_cases']
+        df['ds'] = df['date']
+        df['y'] = df['confirmed']
         df['cap'] = check_fastest
         prof_df = df[['ds', 'y', 'cap']]
         return prof_df
