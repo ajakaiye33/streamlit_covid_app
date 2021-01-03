@@ -262,7 +262,7 @@ def monthly_stats(df):
     monthly_data = df.resample('M').agg(
         {'deaths': 'sum', 'confirmed': 'sum', 'recovered': 'sum'})
     monthly_data['date'] = monthly_data.index
-    monthly_data['month'] = monthly_data['date'].dt.month
+    monthly_data['month'] = monthly_data['date'].dt.date
     return monthly_data.drop('date', axis=1)
 
 
