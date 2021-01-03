@@ -79,9 +79,6 @@ naija_data = naija_cases()
 naija_data['date'] = pd.to_datetime(naija_data['date'])
 
 
-cleany = polish_data(non_time_series_data)
-
-
 # Loading Data
 @st.cache()
 def load_tm_data():
@@ -105,6 +102,10 @@ def naija_json():
     return df
 
 
+loaded_tm = non_tm_data()
+cleany = polish_data(loaded_tm)
+
+
 if st.checkbox('Display States Data'):
     '', cleany.head()
 
@@ -112,26 +113,8 @@ if st.checkbox('Display Timeseries Data'):
     '', naija_data.tail()
 
 
-# def clean_col(name):
-#     # print('pretifying the column names')
-#     pretify_name = name.strip().lower().replace(" ", "_").replace('/', '_')
-#     return pretify_name
-
-
 # clean_data
 second_data = cleany
-#affected_column = ['no._of_cases_(lab_confirmed)', 'no._of_cases_(on_admission)', 'no._discharged']
-
-
-# def polish_data(df):
-#     clean_columns = df.rename(columns=clean_col)
-#     # for i in clean_columns.columns:
-#     #     if i in affected_column:
-#     #         clean_columns[i] = clean_columns[i].str.replace(',', '').astype('int64')
-#     return clean_columns
-#
-#
-# cleany = polish_data(second_data)
 
 
 def states_stat(df, st_col, st_death):
@@ -205,65 +188,36 @@ conf_cases = px.bar(confirmed_cases_states,
 if st.checkbox(' Show Confirmed Cases By States'):
     st.plotly_chart(conf_cases)
 
-
-covid_ng = load_tm_data()
-
-
-# format header columns
-# clean columns
-clean_covid_ng = covid_ng.rename(columns=clean_col)
-columns = {}
-for col in clean_covid_ng.columns:
-    if col == 'abuja(fct)':
-        columns['abuja(fct)'] = 'abuja'
-    elif col == 'dealth':
-        columns['dealth'] = 'deaths'
-    elif col == 'dischared_revovered':
-        columns['dischared_revovered'] = 'discharged_recovered'
-clean_covid_ng.rename(columns=columns, inplace=True)
+second_data = second_data.pivot(columns='states_affected',
+                                values='no._of_cases_(lab_confirmed)').fillna(0)
 
 
 # Extract geopolitical zone
-def extract_features(df):
-    df['south_west'] = df['lagos'] + df['ondo'] + df['osun'] + df['oyo'] + df['ekiti'] + df['ogun']
-    df['south_south'] = df['edo'] + df['rivers'] + df['delta'] + \
-        df['cross_river'] + df['bayelsa'] + df['akwa_ibom']
-    df['south_east'] = df['anambra'] + df['imo'] + df['enugu'] + df['abia'] + df['ebonyi']
-    df['north_central'] = df['benue'] + df['kogi'] + df['nasarawa'] + \
-        df['niger'] + df['plateau'] + df['kwara'] + df['abuja']
-    df['north_east'] = df['adamawa'] + df['bauchi'] + \
-        df['borno'] + df['gombe'] + df['taraba'] + df['yobe']
-    df['north_west'] = df['jigawa'] + df['kaduna'] + df['kano'] + \
-        df['katsina'] + df['kebbi'] + df['sokoto'] + df['zamfara']
-    return df.head(2)
 
 
-extract_features(clean_covid_ng)
+def extract_zones(df):
+    df['south_west'] = df['Lagos'] + df['Ondo'] + df['Osun'] + df['Oyo'] + \
+        df['Ekiti'] + df['Ogun']
+    df['north_west'] = df['Jigawa'] + df['Kaduna'] + df['Kano'] + \
+        df['Katsina'] + df['Kebbi'] + df['Zamfara'] + df['Sokoto']
+    df['south_south'] = df['Edo'] + df['Rivers'] + df['Delta'] + \
+        df['Cross River'] + df['Bayelsa'] + df['Akwa Ibom']
+    df['south_east'] = df['Anambra'] + df['Imo'] + df['Enugu'] + df['Abia'] + \
+        df['Ebonyi']
+    df['north_central'] = df['Benue'] + df['Kogi'] + df['Nasarawa'] + \
+        df['Niger'] + df['Plateau'] + df['Kwara'] + df['FCT']
+    df['north_east'] = df['Adamawa'] + df['Bauchi'] + df['Borno'] + df['Gombe'] + \
+        df['Taraba'] + df['Yobe']
+
+    df = df[['south_south', 'south_west', 'south_east', 'north_central', 'north_west', 'north_east']]
+    df = df.melt(value_vars=['south_west', 'south_south', 'south_east', 'north_central', 'north_east',
+                             'north_west'], var_name='geopolitical_zones', value_name='confirmed_zone_cases')
+    df = df.groupby('geopolitical_zones').agg({'confirmed_zone_cases': 'sum'}).reset_index()
+    df = df.sort_values('confirmed_zone_cases', ascending=False)
+    return df
 
 
-# extract model data
-def m_data(df):
-    m_data = df[['total_daily_cases', 'deaths', 'discharged_recovered']]
-    return m_data
-
-
-model_data = m_data(clean_covid_ng)
-
-# extract Geopolitcal zone
-
-
-def zones(df):
-    zone_data = df[['south_west', 'south_south', 'south_east',
-                    'north_central', 'north_east', 'north_west']]
-    melt_zone = zone_data.melt(value_vars=['south_west', 'south_south', 'south_east', 'north_central', 'north_east', 'north_west'],
-                               var_name='geopolitical_zones', value_name='daily_zone_cases')
-    group_by_zone = melt_zone.groupby('geopolitical_zones').agg(
-        {'daily_zone_cases': 'sum'}).reset_index()
-    sort_by_zonal_cases = group_by_zone.sort_values('daily_zone_cases', ascending=True)
-    return sort_by_zonal_cases
-
-
-geopolitical_zone = zones(clean_covid_ng)
+geopolitical_zone = extract_zones(second_data)
 if st.checkbox('Show Geopolitical Zones Data'):
     '', geopolitical_zone
 
@@ -271,7 +225,7 @@ if st.checkbox('Show Geopolitical Zones Data'):
 # ## Visualize Cases By Geopolitical Zones
 
 geo = px.bar(geopolitical_zone,
-             x='daily_zone_cases',
+             x='confirmed_zone_cases',
              y='geopolitical_zones',
              hover_name='geopolitical_zones',
              title='Total Confirmed Cases By Geopolitical Zones')
@@ -279,7 +233,7 @@ geo = px.bar(geopolitical_zone,
 if st.checkbox('Show Confirmed Cases By Geopolitical Zones'):
     fig = px.sunburst(geopolitical_zone,
                       path=['geopolitical_zones'],
-                      values='daily_zone_cases')
+                      values='confirmed_zone_cases')
     st.plotly_chart(geo)
     st.plotly_chart(fig)
 
@@ -298,19 +252,6 @@ def case_fatality(df):
 cfr = case_fatality(naija_data)
 
 st.markdown(f'### The Case Fatality rate In Nigeria is: {round(cfr,2)}%')
-
-
-# Calculate Mortality Rate/Deaths Per One Million
-# def mortality_rate(df):
-#     estimated_population = 200000000
-#     covid_deaths = df['deaths'].sum()
-#     mr = covid_deaths/estimated_population
-#     return mr
-#
-#
-# mr = mortality_rate(model_data)
-# death_per1million = model_data['deaths'].sum()/1000000
-# print(f'The Mortality Rate of Covid19: {mr}, whereas deaths per one million is:{death_per1million}')
 
 
 # wrangle Data
@@ -338,20 +279,6 @@ month = px.bar(df_month,
 
 if st.checkbox('See Confirmed Cases By Month'):
     st.plotly_chart(month)
-
-
-# get data into shape
-nt_needed = ['discharged_recovered', 'deaths', 'total_daily_cases', 'south_west',
-             'south_south', 'south_east', 'north_central', 'north_east', 'north_west']
-
-
-def tidyrc_data(df):
-    race_chart_data = df.drop(nt_needed, axis=1)
-    clean_rc_data = race_chart_data.cumsum(axis=0)
-    return clean_rc_data
-
-
-clean_rb = tidyrc_data(clean_covid_ng)
 
 
 # Preapre data
@@ -424,31 +351,6 @@ if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better r
     # set upper and lower bounds a,b,class
     bounds = (0, [10000000., 2., 100000000., 100000000.])
     (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
-
-
-#conex = np.array(y)
-
-#
-# # Calculate Time of Plateau
-# def plateau(confirmed, logistic_params, diff=200):
-#     a_, b_, c_, d_ = logistic_params
-#     confirm_now = confirmed[-1]
-#     confirmed_then = confirmed[-2]
-#     days = 0
-#     now = x[-1]
-#     while confirm_now - confirmed_then > diff:
-#         days += 1
-#         confirmed_then = confirm_now
-#         confirm_now = logistic_model(now + days, a_, b_, c_, d_)
-#     return days, confirm_now
-
-#
-# days, confirmy = plateau(y, (a_, b_, c_, d_))
-#
-# print(f"last day's case:{conex[-1] - conex[-2]}")
-
-
-# carrying cappacity from above logistic growth model
 
     t_fastest = np.log(a_)/b_
 
