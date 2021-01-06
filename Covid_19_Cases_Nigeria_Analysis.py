@@ -3,6 +3,9 @@
 
 
 # import modules and packages
+import sys
+sys.path.extend(
+    [r"/Users/user/.local/share/virtualenvs/my_streamlit_app-qEsR0MfX/lib/python3.7/site-packages"])
 import pandas as pd
 import plotly.express as px
 import numpy as np
@@ -154,10 +157,10 @@ rcov = px.bar(state_recov_ratio,
               hover_name='states_affected',
               title='Recovery Rate By States')
 
-if st.checkbox('See Recoveries/Discharged Rates By States'):
-    st.plotly_chart(rcov)
-    st.markdown(
-        'Wow, you have a high chance of recovery from the disease if you are in any of those states from the left')
+# if st.checkbox('See Recoveries/Discharged Rates By States'):
+#     st.plotly_chart(rcov)
+#     st.markdown(
+#         'Wow, you have a high chance of recovery from the disease if you are in any of those states from the left')
 
 
 # Wrangle Data
@@ -188,26 +191,36 @@ conf_cases = px.bar(confirmed_cases_states,
 if st.checkbox(' Show Confirmed Cases By States'):
     st.plotly_chart(conf_cases)
 
-second_data = second_data.pivot(columns='states_affected',
-                                values='no._of_cases_(lab_confirmed)').fillna(0)
+#second_data = second_data[['states_affected', 'no._of_cases_(lab_confirmed)']]
+# st.write(second_data)
 
-
+pivoted_data = second_data.pivot_table(
+    values='no._of_cases_(lab_confirmed)', columns='states_affected')
+#st.write(pivoted_data.iloc[:, -1])
 # Extract geopolitical zone
 
 
 def extract_zones(df):
-    df['south_west'] = df['Lagos'] + df['Ondo'] + df['Osun'] + df['Oyo'] + \
-        df['Ekiti'] + df['Ogun']
-    df['north_west'] = df['Jigawa'] + df['Kaduna'] + df['Kano'] + \
-        df['Katsina'] + df['Kebbi'] + df['Zamfara'] + df['Sokoto']
-    df['south_south'] = df['Edo'] + df['Rivers'] + df['Delta'] + \
-        df['Cross River'] + df['Bayelsa'] + df['Akwa Ibom']
-    df['south_east'] = df['Anambra'] + df['Imo'] + df['Enugu'] + df['Abia'] + \
-        df['Ebonyi']
-    df['north_central'] = df['Benue'] + df['Kogi'] + df['Nasarawa'] + \
-        df['Niger'] + df['Plateau'] + df['Kwara'] + df['FCT']
-    df['north_east'] = df['Adamawa'] + df['Bauchi'] + df['Borno'] + df['Gombe'] + \
-        df['Taraba'] + df['Yobe']
+    list_of_states = df.columns.to_list()
+    df.loc[:, 'south_west'] = df.iloc[:, 24].add(df.iloc[:, 27]).add(
+        df.iloc[:, 28]).add(df.iloc[:, 29]).add(df.iloc[:, 30])
+
+    df.loc[:, 'south_south'] = df.iloc[:, 5].add(df.iloc[:, 2]).add(
+        df.iloc[:, 8]).add(df.iloc[:, 9]).add(df.iloc[:, 11])
+
+    df.loc[:, 'south_east'] = df.iloc[:, 3].add(df.iloc[:, 16]).add(
+        df.iloc[:, 13]).add(df.iloc[:, 0]).add(df.iloc[:, 10])
+
+    df.loc[:, 'north_central'] = df.iloc[:, 6].add(df.iloc[:, 22]).add(df.iloc[:, 25]).add(
+        df.iloc[:, 26]).add(df.iloc[:, 31]).add(df.iloc[:, 23]).add(df.iloc[:, 14])
+
+    df.loc[:, 'north_west'] = df.iloc[:, 36].add(df.iloc[:, 18]).add(df.iloc[:, 19]).add(
+        df.iloc[:, 20]).add(df.iloc[:, 21]).add(df.iloc[:, 17]).add(df.iloc[:, 33])
+
+    df.loc[:, 'north_east'] = df.iloc[:, 1].add(df.iloc[:, 4]).add(
+        df.iloc[:, 7]).add(df.iloc[:, 15]).add(df.iloc[:, 34]).add(df.iloc[:, 35])
+    # print(df.tail())
+    #df = df.drop(list_of_states, 1)
 
     df = df[['south_south', 'south_west', 'south_east', 'north_central', 'north_west', 'north_east']]
     df = df.melt(value_vars=['south_west', 'south_south', 'south_east', 'north_central', 'north_east',
@@ -217,7 +230,10 @@ def extract_zones(df):
     return df
 
 
-geopolitical_zone = extract_zones(second_data)
+# st.write(extract_zones(pivoted_data))
+
+
+geopolitical_zone = extract_zones(pivoted_data)
 if st.checkbox('Show Geopolitical Zones Data'):
     '', geopolitical_zone
 
@@ -258,7 +274,7 @@ st.markdown(f'### The Case Fatality rate In Nigeria is: {round(cfr,2)}%')
 def monthly_stats(df):
     df = df.set_index('date')
     df = df.diff()
-    #make_date_index = df.set_index(data_column)
+    # make_date_index = df.set_index(data_column)
     monthly_data = df.resample('M').agg(
         {'deaths': 'sum', 'confirmed': 'sum', 'recovered': 'sum'})
     monthly_data['date'] = monthly_data.index
@@ -327,62 +343,65 @@ def line_graph():
     st.plotly_chart(ax)
 
 
-if st.checkbox('See Forecast of Confirmed Cases, 30 days from today(For better result, check all preceeding check boxes above)'):
+if st.checkbox('See Forecast of Confirmed Cases, 67 days from today(For better result, check all preceeding check boxes above)'):
     line_graph()
 
-    # Build Logistic Model
-    def logistic_model(x, a, b, c, d):
-        return a / (1 + np.exp(-c * (x - d))) + b
-
-    def build_data(df):
-        df['time_stamp'] = df.index
-        return df
-
-    build_model = build_data(log_model_data)
-    # st.write(build_model.head())
-
-    # extract x(days) & y(cases) from dataframe
-
-    x = list(build_model.iloc[:, 4])
-    y = list(build_model.iloc[:, 1])
-    # randomly initialize a,b,c,d
-    p0 = np.random.exponential(size=4)
-
-    # set upper and lower bounds a,b,class
-    bounds = (0, [10000000., 2., 100000000., 100000000.])
-    (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
-
-    t_fastest = np.log(a_)/b_
-
-    check_fastest = logistic_model(t_fastest, a_, b_, c_, d_)
+    # # Build Logistic Model
+    # def logistic_model(x, a, b, c, d):
+    #     return a / (1 + np.exp(-c * (x - d))) + b
+    #
+    # def build_data(df):
+    #     df['time_stamp'] = df.index
+    #     return df
+    #
+    # build_model = build_data(log_model_data)
+    # # st.write(build_model.head())
+    #
+    # # extract x(days) & y(cases) from dataframe
+    #
+    # x = list(build_model.iloc[:, 4])
+    # y = list(build_model.iloc[:, 1])
+    # # randomly initialize a,b,c,d
+    # p0 = np.random.exponential(size=4)
+    #
+    # # set upper and lower bounds a,b,class
+    # bounds = (0, [10000000., 2., 100000000., 100000000.])
+    # (a_, b_, c_, d_), cov = curve_fit(logistic_model, x, y, bounds=bounds, p0=p0)
+    #
+    # t_fastest = np.log(a_)/b_
+    #
+    # #check_fastest = logistic_model(t_fastest, a_, b_, c_, d_)
+    # check_fastest = build_model.iloc[-1, 1]
+    # st.write(check_fastest)
 
     # wrangle dataframe to fit prophet requirement
     def forecast_data(df):
         df['ds'] = df['date']
         df['y'] = df['confirmed']
-        df['cap'] = check_fastest
-        prof_df = df[['ds', 'y', 'cap']]
+        #df['cap'] = check_fastest
+        prof_df = df[['ds', 'y']]
         return prof_df
 
-    prophet_data = forecast_data(build_model)
+    prophet_data = forecast_data(log_model_data)
     # st.write(prophet_data.tail())
 
 # Build Prophet Model
 
-    m = Prophet(growth='logistic')
+    m = Prophet(growth='linear', interval_width=0.95, daily_seasonality=True, weekly_seasonality=True,
+                yearly_seasonality=False, changepoint_prior_scale=0.5, n_changepoints=200, seasonality_mode='multiplicative')
     m.fit(prophet_data)
-    future = m.make_future_dataframe(periods=30)
+    future = m.make_future_dataframe(periods=67, freq='D')
 
-    future['cap'] = prophet_data['cap'].iloc[0]
+    #future['cap'] = prophet_data['cap'].iloc[0]
     forecast = m.predict(future)
 
     # Visualize Prophet Model
     # st.write(forecast.tail())
 
-    lowyhat = forecast.iloc[-1, 3]
-    upperyhat = forecast.iloc[-1, 4]
+    lowyhat = forecast.iloc[-1, 2]
+    upperyhat = forecast.iloc[-1, 3]
     st.markdown(
-        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} 30 days from today ')
+        f'### The confirmed cases in Nigeria will be in the range of {round(lowyhat,2)} and {round(upperyhat,2)} on/before the end of first quarter of 2021 ')
 
     fig = m.plot(forecast)
     st.write(fig)
